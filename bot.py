@@ -11,6 +11,7 @@ from admin_panel import admin_router
 from config import TOKEN, CHANNEL_ID, PRIVATE_CHANNEL_ID
 from middlewares import CheckMembershipMiddleware
 from referral_tree import send_referral_tree_image
+from start_requests import post_new_user, get_user_ref
 from utils import create_join_and_check_buttons, create_main_menu_buttons, generate_private_link, create_start_earn_buttons, create_user_profile_buttons, create_earn_money
 from database import get_pool, get_user, create_user, update_balance, create_withdrawal_request, get_pending_request
 
@@ -33,17 +34,56 @@ def check_if_any_payload(command: CommandObject):
         return decode_payload(args)
     else:
         return None
-@router.message(CommandStart(deep_link=True))
+
+
+
+
+
+@dp.message(CommandStart(deep_link=True))
 async def handler(message: Message, command: CommandObject):
     args = check_if_any_payload(command)
-    await message.answer(f"{args}")
-@router.message(CommandStart())
+    if args:
+        referral_login = args
+        user_data = {
+            "login": str(message.from_user.id),
+            "password": "random_password",
+            "name": message.from_user.first_name,
+            "username": message.from_user.username,
+            "referralLogin": referral_login
+        }
+        if post_new_user != None:
+            post_response = post_new_user(user_data)
+            await message.answer(f"Referral data sent: {post_response}")
+        else:
+            await message.answer("Error occured with your or your inviter refferal code")
+    else:
+        await message.answer("No payload found.")
+
+@dp.message(CommandStart())
 async def start_command(message: Message):
     user_id = message.from_user.id
     user_name = message.from_user.full_name
     try:
         chat_member = await bot.get_chat_member(CHANNEL_ID, user_id)
         if chat_member.status in ['member', 'administrator', 'creator']:
+            await proceed_to_main_menu(message)
+        else:
+            await send_join_and_check_buttons(message)
+    except Exception as e:
+        logging.error(e)
+        await message.answer("Произошла ошибка при проверке членства в канале.")
+
+# @router.message(CommandStart(deep_link=True))
+# async def handler(message: Message, command: CommandObject):
+#     args = check_if_any_payload(command)
+#     await message.answer(f"{args}")
+# @router.message(CommandStart())
+# async def start_command(message: Message):
+#     user_id = message.from_user.id
+#     user_name = message.from_user.full_name
+    # try:
+    #     chat_member = await bot.get_chat_member(CHANNEL_ID, user_id)
+    #     if chat_member.status in ['member', 'administrator', 'creator']:
 
             # async with await get_pool() as pool:
             #     user = await get_user(pool, user_id)
@@ -60,12 +100,12 @@ async def start_command(message: Message):
             #         except Exception as e:
             #             logging.error(e)
             #             await message.answer("Welcome back!")
-            await proceed_to_main_menu(message)
-        else:
-            await send_join_and_check_buttons(message)
-    except Exception as e:
-        logging.error(e)
-        await message.answer("Произошла ошибка при проверке членства в канале.")
+    #         await proceed_to_main_menu(message)
+    #     else:
+    #         await send_join_and_check_buttons(message)
+    # except Exception as e:
+    #     logging.error(e)
+    #     await message.answer("Произошла ошибка при проверке членства в канале.")
 async def send_join_and_check_buttons(message: Message):
     keyboard = create_join_and_check_buttons()
     await message.answer("Привіт! Будь ласка, приєднайтесь до нашого каналу, щоб продовжити.", reply_markup=keyboard)
@@ -156,6 +196,7 @@ async def my_profile(callback_query: CallbackQuery):
         balance = user[2]
         keyboard = create_user_profile_buttons()
         await callback_query.message.edit_text(f"Ваш профіль. Баланс: {balance}$", reply_markup=keyboard)
+
 @router.callback_query(F.data == "deposit")
 async def deposit(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -186,10 +227,12 @@ async def withdraw(callback_query: CallbackQuery):
 
 @router.callback_query(F.data == "referral_program")
 async def referral_program(callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    referral_link = get_user_ref(user_id)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Дерево рефералов", callback_data="referral_tree")],
         [InlineKeyboardButton(text="Баланс", callback_data="referral_balance")],
-        [InlineKeyboardButton(text="Поделиться ссылкой", switch_inline_query="")],
+        InlineKeyboardButton(text="Поделиться ссылкой", link = referral_link),
         [InlineKeyboardButton(text="Назад", callback_data="back_to_main_menu")]
     ])
     await callback_query.message.edit_text("Выберите опцию:", reply_markup=keyboard)
