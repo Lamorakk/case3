@@ -7,6 +7,7 @@ import asyncio
 
 from aiogram.utils.payload import decode_payload
 
+from admin_panel import admin_router
 from config import TOKEN, CHANNEL_ID, PRIVATE_CHANNEL_ID
 from middlewares import CheckMembershipMiddleware
 from referral_tree import send_referral_tree_image
@@ -15,6 +16,9 @@ from database import get_pool, get_user, create_user, update_balance, create_wit
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
+
+# Include admin_router
+dp.include_router(admin_router)
 
 router = Router()
 dp.include_router(router)
@@ -40,21 +44,22 @@ async def start_command(message: Message):
     try:
         chat_member = await bot.get_chat_member(CHANNEL_ID, user_id)
         if chat_member.status in ['member', 'administrator', 'creator']:
-            async with await get_pool() as pool:
-                user = await get_user(pool, user_id)
-                if not user:
-                    await create_user(pool, user_id, user_name)
-                    try:
-                        await message.edit_text("Welcome to the channel!")
-                    except Exception as e:
-                        logging.error(e)
-                        await message.answer("Welcome to the channel!")
-                else:
-                    try:
-                        await message.edit_text("Welcome back!")
-                    except Exception as e:
-                        logging.error(e)
-                        await message.answer("Welcome back!")
+
+            # async with await get_pool() as pool:
+            #     user = await get_user(pool, user_id)
+            #     if not user:
+            #         await create_user(pool, user_id, user_name)
+            #         try:
+            #             await message.edit_text("Welcome to the channel!")
+            #         except Exception as e:
+            #             logging.error(e)
+            #             await message.answer("Welcome to the channel!")
+            #     else:
+            #         try:
+            #             await message.edit_text("Welcome back!")
+            #         except Exception as e:
+            #             logging.error(e)
+            #             await message.answer("Welcome back!")
             await proceed_to_main_menu(message)
         else:
             await send_join_and_check_buttons(message)

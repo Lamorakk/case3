@@ -1,10 +1,11 @@
 import logging
-from aiogram import types, Bot, Dispatcher, Router
+from aiogram import Router, types
+from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
-from config import ADMIN_GROUP_ID
 from database import get_pool, get_pending_orders, update_order_status, get_user
+from config import ADMIN_GROUP_ID
 
-router = Router()
+admin_router = Router()
 
 def create_admin_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -12,12 +13,16 @@ def create_admin_keyboard():
         [InlineKeyboardButton(text="View All History", callback_data="view_all_history")]
     ])
 
-@router.message(lambda message: message.chat.id == ADMIN_GROUP_ID and message.text == "Admin Panel")
+@admin_router.message(Command(commands=["admin_panel"]))
 async def show_admin_menu(message: Message):
+    if message.chat.id != ADMIN_GROUP_ID:
+        await message.answer("This command can only be used in the admin group.")
+        await message.answer(f"Chat ID: {message.chat.id}")
+        return
     keyboard = create_admin_keyboard()
     await message.answer("Welcome to the admin panel. Choose an option:", reply_markup=keyboard)
 
-@router.callback_query(lambda c: c.data == "start_review_withdraws")
+@admin_router.callback_query(lambda c: c.data == "start_review_withdraws")
 async def start_review_withdraws(callback_query: CallbackQuery):
     async with await get_pool() as pool:
         orders = await get_pending_orders(pool)
@@ -40,7 +45,7 @@ async def show_order(callback_query: CallbackQuery, order, index, orders):
     ])
     await callback_query.message.edit_text(f"Reviewing withdrawal request №{index + 1}\n\nUser: {user_name} (ID: {user_id})\nAmount: {amount}$", reply_markup=keyboard)
 
-@router.callback_query(lambda c: c.data.startswith("approve_"))
+@admin_router.callback_query(lambda c: c.data.startswith("approve_"))
 async def approve_withdraw(callback_query: CallbackQuery):
     index = int(callback_query.data.split("_")[1])
     async with await get_pool() as pool:
@@ -51,32 +56,32 @@ async def approve_withdraw(callback_query: CallbackQuery):
         if index < len(orders) - 1:
             await show_order(callback_query, orders[index + 1], index + 1, orders)
 
-@router.callback_query(lambda c: c.data.startswith("deny_"))
+@admin_router.callback_query(lambda c: c.data.startswith("deny_"))
 async def deny_withdraw(callback_query: CallbackQuery):
     index = int(callback_query.data.split("_")[1])
     async with await get_pool() as pool:
         orders = await get_pending_orders(pool)
         order = orders[index]
-        await update_order_status(pool, order[0], 'denied')  # Assuming order_id is the first column
+        await update_order_status(pool, order[0], 'denied')
         await callback_query.message.edit_text(f"Withdrawal request №{index + 1} denied.")
         if index < len(orders) - 1:
             await show_order(callback_query, orders[index + 1], index + 1, orders)
 
-@router.callback_query(lambda c: c.data.startswith("next_"))
+@admin_router.callback_query(lambda c: c.data.startswith("next_"))
 async def next_order(callback_query: CallbackQuery):
     index = int(callback_query.data.split("_")[1])
     async with await get_pool() as pool:
         orders = await get_pending_orders(pool)
         await show_order(callback_query, orders[index], index, orders)
 
-@router.callback_query(lambda c: c.data.startswith("previous_"))
+@admin_router.callback_query(lambda c: c.data.startswith("previous_"))
 async def previous_order(callback_query: CallbackQuery):
     index = int(callback_query.data.split("_")[1]) - 1
     async with await get_pool() as pool:
         orders = await get_pending_orders(pool)
         await show_order(callback_query, orders[index], index, orders)
 
-@router.callback_query(lambda c: c.data == "view_all_history")
+@admin_router.callback_query(lambda c: c.data == "view_all_history")
 async def view_all_history(callback_query: CallbackQuery):
     # Placeholder for history viewing logic
     await callback_query.message.edit_text("Displaying all history (to be implemented).")
