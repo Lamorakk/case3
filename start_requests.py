@@ -5,10 +5,13 @@ from aiogram.handlers import message
 
 from config import JWT_TOKEN
 
+Url = 'http://localhost:6027/api/users/register'
+token = 'eyJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJzZWxmIiwic3ViIjoidXNlcjEyMyIsImV4cCI6MTcxOTUyNDQ3NiwiaWF0IjoxNzE5MTY0NDc2LCJzY29wZSI6IkFETUlOIn0.2_sKML_7gl0g5UxUgSb8u_PtflcKqm0pnrL9O7y3Ms3gx71-2k4U1jkGsGkc6UP1lKj9yi9gDIvBr7qfcipmBg'
+
 def post_new_user(data):
     url = 'http://localhost:6027/api/users/register'
     headers = {
-        'Authorization': f'Bearer {JWT_TOKEN}',
+        'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json'
     }
 
@@ -23,10 +26,10 @@ def post_new_user(data):
 
 
 def get_user_ref(user_id):
-    url = 'http://localhost:6027/api/users/reflink/{user_id}'
+    url = f'http://localhost:6027/api/users/reflink/{user_id}'
     try:
         headers = {
-            'Authorization': f'Bearer {JWT_TOKEN}',
+            'Authorization': f'Bearer {token}',
             'Content-Type': 'application/json'
         }
         response = requests.get(url, headers=headers, json=user_id)
