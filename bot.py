@@ -1,10 +1,11 @@
 import logging
 from aiogram import Bot, Dispatcher, types, Router
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile, Message, CallbackQuery
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery,InputFile
 from aiogram.filters import CommandStart, CommandObject
 from aiogram import F
 import asyncio
 
+from aiogram.utils import keyboard
 from aiogram.utils.payload import decode_payload
 
 from admin_panel import admin_router
@@ -18,7 +19,6 @@ from database import get_pool, get_user, create_user, update_balance, create_wit
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Include admin_router
 dp.include_router(admin_router)
 
 router = Router()
@@ -34,11 +34,6 @@ def check_if_any_payload(command: CommandObject):
         return decode_payload(args)
     else:
         return None
-
-
-
-
-
 @dp.message(CommandStart(deep_link=True))
 async def handler(message: Message, command: CommandObject):
     args = check_if_any_payload(command)
@@ -54,12 +49,16 @@ async def handler(message: Message, command: CommandObject):
         if post_new_user != None:
             post_response = post_new_user(user_data)
             await message.answer(f"Referral data sent: {post_response}")
+            await start_command(message)
         else:
             await message.answer("Error occured with your or your inviter refferal code")
     else:
         await message.answer("No payload found.")
 
-@dp.message(CommandStart())
+
+
+
+
 async def start_command(message: Message):
     user_id = message.from_user.id
     user_name = message.from_user.full_name
@@ -184,7 +183,6 @@ async def back_to_main_menu(callback_query: CallbackQuery):
         logging.error(e)
         await callback_query.message.answer("Ви є учасником каналу! Ви можете продовжити.", reply_markup=keyboard)
 
-
 @router.callback_query(F.data == "my_profile")
 async def my_profile(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
@@ -232,10 +230,9 @@ async def referral_program(callback_query: CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Дерево рефералов", callback_data="referral_tree")],
         [InlineKeyboardButton(text="Баланс", callback_data="referral_balance")],
-        InlineKeyboardButton(text="Поделиться ссылкой", link = referral_link),
         [InlineKeyboardButton(text="Назад", callback_data="back_to_main_menu")]
     ])
-    await callback_query.message.edit_text("Выберите опцию:", reply_markup=keyboard)
+    await callback_query.message.edit_text(f"Скопируйте вашу реферальную ссылку: `{referral_link}`", parse_mode="Markdown", reply_markup=keyboard)
 
 @router.callback_query(F.data == "referral_tree")
 async def referral_tree(callback_query: CallbackQuery):
@@ -249,9 +246,9 @@ async def referral_balance(callback_query: CallbackQuery):
     async with await get_pool() as pool:
         user = await get_user(pool, user_id)
         if user:
-            level_1_earnings = 50.00  # Replace with actual calculation
-            level_2_earnings = 25.00  # Replace with actual calculation
-            total_balance = user[2]  # Assuming user[2] is the balance
+            level_1_earnings = 50.00
+            level_2_earnings = 25.00
+            total_balance = user[2]
 
             balance_info = (
                 f"Баланс от рефералов уровня 1: {level_1_earnings}$\n"
@@ -263,10 +260,17 @@ async def referral_balance(callback_query: CallbackQuery):
             await callback_query.message.edit_text("Користувача не знайдено.")
     await callback_query.answer()
 
+@router.callback_query(F.data == "how_it_works")
+async def how_it_works(callback_query: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Назад", callback_data="back_to_main_menu")]
+    ])
+    try:
+        await callback_query.message.edit_text(f"Наш проект...", reply_markup=keyboard)
+    except Exception as e:
+        logging.error(e)
+        await callback_query.message.answer(f"Наш проект...", reply_markup=keyboard)
 
-@router.message(F.text == "Информация как это работает")
-async def how_it_works(message: Message):
-    await message.answer("Інформація про проєкт та як це працює.")
 
 
 async def main():
